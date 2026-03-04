@@ -207,7 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # Project artifacts
-data/
+/data/
 artifacts/
 logs/
 .kaggle/
