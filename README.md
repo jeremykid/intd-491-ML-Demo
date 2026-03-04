@@ -1,10 +1,22 @@
 # Spam Email Classification Demo
 
-Teaching-first PyTorch Lightning demo for Kaggle spam email datasets using a pure PyTorch `EmbeddingBag` model, a reusable `LightningDataModule`, and notebook-first workflows.
+Teaching-first PyTorch Lightning demo for Kaggle spam email datasets using reusable preprocessing, a shared `LightningDataModule`, and notebook-first workflows.
 
 ## Project Overview
 
-This repo is designed for classroom use. The main path is `notebooks/local_demo.ipynb`, which walks through:
+This repo is designed for classroom use. The main path is `notebooks/local_demo.ipynb`, which walks through the `EmbeddingBag` baseline. The repo also supports side-by-side comparison across:
+
+- `embeddingbag`
+- `lstm`
+- `transformer`
+
+Notebook paths:
+
+- `notebooks/local_demo.ipynb`: baseline-first local walkthrough
+- `notebooks/colab_demo.ipynb`: baseline-first Colab walkthrough
+- `notebooks/model_comparison_demo.ipynb`: local comparison notebook for all three models
+
+The baseline notebook covers:
 
 - Kaggle token setup
 - Dataset download
@@ -23,7 +35,8 @@ The repo does not commit raw Kaggle data, processed data, logs, checkpoints, or 
 .
 ├── notebooks/
 │   ├── local_demo.ipynb
-│   └── colab_demo.ipynb
+│   ├── colab_demo.ipynb
+│   └── model_comparison_demo.ipynb
 ├── scripts/
 │   ├── download_kaggle.py
 │   ├── preprocess.py
@@ -37,6 +50,7 @@ The repo does not commit raw Kaggle data, processed data, logs, checkpoints, or 
 │   │   ├── datamodule.py
 │   │   └── text_utils.py
 │   ├── models/
+│   │   ├── backbones.py
 │   │   └── lit_model.py
 │   └── utils/
 │       ├── logging.py
@@ -86,7 +100,7 @@ Both notebooks provide a helper to upload `kaggle.json`, copy it into `~/.kaggle
 
 ## Local Notebook Walkthrough
 
-`notebooks/local_demo.ipynb` is the primary classroom demo. It covers:
+`notebooks/local_demo.ipynb` is the primary classroom demo. It stays focused on the `embeddingbag` baseline and covers:
 
 1. Installing required packages
 2. Setting `KAGGLE_DATASET_SLUG`
@@ -102,6 +116,8 @@ Both notebooks provide a helper to upload `kaggle.json`, copy it into `~/.kaggle
 12. Predicting on one custom email text
 13. Listing artifacts
 
+For side-by-side architecture comparison, use `notebooks/model_comparison_demo.ipynb`.
+
 Before running the notebook, replace:
 
 ```python
@@ -112,7 +128,7 @@ with a real Kaggle dataset slug such as `username/spam-email-classification`.
 
 ## Colab Walkthrough
 
-`notebooks/colab_demo.ipynb` mirrors the local notebook, with only a few differences:
+`notebooks/colab_demo.ipynb` mirrors the local baseline notebook, with only a few differences:
 
 - Colab-style package installation
 - `google.colab.files.upload()` for `kaggle.json`
@@ -122,14 +138,16 @@ with a real Kaggle dataset slug such as `username/spam-email-classification`.
 
 ## CLI Commands
 
-Use the same code path outside the notebook:
+Use the same code path outside the notebook. The default model is `embeddingbag`, but you can switch to `lstm` or `transformer` with `--model_name`.
 
 ```bash
 python scripts/download_kaggle.py --dataset $KAGGLE_DATASET_SLUG
 python scripts/preprocess.py --raw_dir data/raw --out_dir data/processed
-python scripts/train.py --data_dir data/processed --max_epochs 5
-python scripts/evaluate.py --ckpt artifacts/best.ckpt --data_dir data/processed
-python scripts/predict.py --ckpt artifacts/best.ckpt --text "free money!!!"
+python scripts/train.py --data_dir data/processed --model_name embeddingbag --max_epochs 5
+python scripts/evaluate.py --ckpt artifacts/embeddingbag-seed42/best.ckpt --data_dir data/processed
+python scripts/predict.py --ckpt artifacts/embeddingbag-seed42/best.ckpt --text "free money!!!"
+python scripts/train.py --data_dir data/processed --model_name lstm --max_epochs 5
+python scripts/train.py --data_dir data/processed --model_name transformer --max_epochs 5
 ```
 
 If auto-detection cannot identify the right raw file or columns, pass explicit overrides:
@@ -145,14 +163,14 @@ python scripts/preprocess.py \
 
 ## Artifacts Produced
 
-Training writes:
+Training writes run-scoped artifacts:
 
-- `artifacts/best.ckpt`
-- `artifacts/vocab.json`
-- `artifacts/config.json`
-- `logs/spam_lightning/`
+- `artifacts/<run_name>/best.ckpt`
+- `artifacts/<run_name>/vocab.json`
+- `artifacts/<run_name>/config.json`
+- `logs/spam_lightning/<run_name>/`
 
-`config.json` captures column choices, label mapping, hyperparameters, seed, and artifact paths.
+By default, `run_name` is `<model_name>-seed<seed>`. `config.json` captures column choices, label mapping, model architecture, hyperparameters, seed, and artifact paths.
 
 ## Tests
 
@@ -166,7 +184,9 @@ The test suite covers:
 
 - regex tokenization and vocabulary behavior
 - column detection and label normalization
-- EmbeddingBag batch collation
+- EmbeddingBag and sequence batch collation
+- backbone output shape validation
+- multi-model config restoration
 
 ## Troubleshooting
 
@@ -181,3 +201,6 @@ The test suite covers:
 
 - `Missing processed data file`
   Run preprocessing before training or evaluation.
+
+- `embed_dim must be divisible by num_heads`
+  Lower `--transformer_num_heads` or choose an `--embed_dim` divisible by that head count.

@@ -7,6 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytorch_lightning as L
 
@@ -24,6 +25,23 @@ def _load_json(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Required file does not exist: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def build_datamodule_from_config(data_dir: Path, config: dict[str, Any], vocab_path: Path) -> SpamDataModule:
+    """Restore the DataModule from saved config."""
+
+    return SpamDataModule(
+        data_dir=data_dir,
+        batch_size=int(config["trainer"]["batch_size"]),
+        num_workers=int(config["trainer"]["num_workers"]),
+        pin_memory=bool(config["trainer"]["pin_memory"]),
+        lowercase=bool(config["lowercase"]),
+        min_freq=int(config["vocab"]["min_freq"]),
+        max_vocab_size=int(config["vocab"]["max_vocab_size"]),
+        vocab_path=vocab_path,
+        model_name=str(config["model_name"]),
+        max_seq_len=int(config["trainer"].get("max_seq_len", config["model"].get("max_seq_len", 256))),
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,16 +63,7 @@ def main() -> None:
     vocab_path = Path(config["artifacts"]["vocab_json"]).resolve()
     data_dir = Path(args.data_dir).resolve()
 
-    datamodule = SpamDataModule(
-        data_dir=data_dir,
-        batch_size=int(config["trainer"]["batch_size"]),
-        num_workers=int(config["trainer"]["num_workers"]),
-        pin_memory=bool(config["trainer"]["pin_memory"]),
-        lowercase=bool(config["lowercase"]),
-        min_freq=int(config["vocab"]["min_freq"]),
-        max_vocab_size=int(config["vocab"]["max_vocab_size"]),
-        vocab_path=vocab_path,
-    )
+    datamodule = build_datamodule_from_config(data_dir=data_dir, config=config, vocab_path=vocab_path)
     datamodule.setup("test")
 
     model = SpamLitModule.load_from_checkpoint(str(ckpt_path))
@@ -62,6 +71,8 @@ def main() -> None:
     results = trainer.test(model, datamodule=datamodule)
     metrics = results[0] if results else {}
 
+    print(f"Run name: {config.get('run_name')}")
+    print(f"Model name: {config.get('model_name')}")
     print("Test metrics")
     print(f"  accuracy: {metrics.get('test_acc')}")
     print(f"  f1: {metrics.get('test_f1')}")

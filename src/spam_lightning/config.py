@@ -79,14 +79,25 @@ class DataConfig:
     pin_memory: bool = False
     min_freq: int = 2
     max_vocab_size: int = 20000
+    max_seq_len: int = 256
 
 
 @dataclass
 class ModelConfig:
     """Model defaults."""
 
+    model_name: str = "embeddingbag"
     embed_dim: int = 64
     learning_rate: float = 1e-3
+    dropout: float = 0.1
+    lstm_hidden_dim: int = 64
+    lstm_num_layers: int = 1
+    lstm_bidirectional: bool = True
+    transformer_num_layers: int = 2
+    transformer_num_heads: int = 4
+    transformer_ff_dim: int = 128
+    transformer_pooling: str = "mean"
+    transformer_positional_encoding: str = "sinusoidal"
 
 
 @dataclass
@@ -96,6 +107,7 @@ class TrainConfig:
     max_epochs: int = 5
     precision: str = "32-true"
     deterministic: bool = True
+    run_name: Optional[str] = None
 
 
 @dataclass
